@@ -7,6 +7,7 @@ from griffe.collections import ModulesCollection
 from griffe.dataclasses import Alias
 from griffe.docstrings.parsers import Parser, parse
 from griffe.docstrings import dataclasses as ds  # noqa
+from griffe.importer import dynamic_import
 from griffe import dataclasses as dc
 from plum import dispatch  # noqa
 from pathlib import Path
@@ -71,6 +72,7 @@ def get_object(
     parser: str = "numpy",
     load_aliases=True,
     modules_collection: "None | ModulesCollection" = None,
+    _import_docstring: bool = False,
 ) -> dc.Object:
     """Fetch a griffe object.
 
@@ -86,6 +88,10 @@ def get_object(
         For aliases that were imported from other modules, should we load that module?
     modules_collection: optional
         A griffe [](`~griffe.collections.ModulesCollection`), used to hold loaded modules.
+    _import_docstring: bool
+        Whether to dynamically import the docstring. This is useful for docstrings
+        that are dynamically generated. Note that this parameters is experimental,
+        and will likely change in the future.
 
     See Also
     --------
@@ -112,6 +118,18 @@ def get_object(
         target_mod = f_data.target_path.split(".")[0]
         if target_mod != module:
             griffe.load_module(target_mod)
+
+    if _import_docstring:
+        # if isinstance(f_data, Alias):
+        #    # TODO: handle target being another Alias
+        #    dst = f_data.target
+        #    dst.
+
+        f_imported = dynamic_import(f_data.path)
+        ds_kwargs = {**f_data.docstring.as_dict(), "value": f_imported.__doc__}
+
+        new_docstring = dc.Docstring(**ds_kwargs, parser=griffe.docstring_parser)
+        f_data.docstring = new_docstring
 
     return f_data
 
@@ -189,6 +207,7 @@ class Builder:
         sidebar: "str | None" = None,
         use_interlinks: bool = False,
         display_name: str = "name",
+        import_docstring: bool = False,
     ):
         self.validate(sections)
 
@@ -198,6 +217,7 @@ class Builder:
         self.dir = dir
         self.title = title
         self.display_name = display_name
+        self.import_docstring = import_docstring
 
         self.items: "dict[str, dc.Object | dc.Alias]" = {}
         self.create_items()
@@ -252,7 +272,9 @@ class Builder:
         for section in self.sections:
             for func_name in section["contents"]:
                 _log.info(f"Getting object for `{self.package}.{func_name}`")
-                obj = f_get_object(self.package, func_name)
+                obj = f_get_object(
+                    self.package, func_name, _import_docstring=self.import_docstring
+                )
                 self.items[func_name] = obj
 
     # inventory ----
@@ -375,7 +397,7 @@ class BuilderPkgdown(Builder):
         rendered = []
         for func_name in section["contents"]:
             # TODO: shouldn't need to collect object again after .create_items()
-            obj = get_object(self.package, func_name)
+            obj = self.items[func_name]
             rendered.append(self._render_object(obj))
 
         str_func_table = "\n".join([thead, *rendered])
