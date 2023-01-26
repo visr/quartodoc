@@ -1,0 +1,38 @@
+project:
+  type: website
+  render:
+    - "*.qmd"
+    - "*.ipynb"
+    - "!plotnine-examples/"
+
+website:
+  title: pkgdown example
+  navbar:
+    left:
+      - href: https://machow.github.io/quartodoc/
+        text: quartodoc home
+      - file: reference/index.qmd
+        text: "Reference"
+    right:
+      - icon: github
+        href: https://github.com/machow/quartodoc/tree/main/examples/pkgdown
+
+format:
+  html:
+    theme:
+      light: minty
+    toc: true
+
+quartodoc:
+  style: pkgdown
+  dir: reference
+  package: plotnine
+  import_docstring: true
+  renderer:
+    style: "_renderer.py"
+  sections:
+    - title: geoms
+      desc: Geoms do something cool.
+      contents:
+        - geoms.geom_point.geom_point
+        - geoms.geom_bar.geom_bar
